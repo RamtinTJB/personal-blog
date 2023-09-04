@@ -1,0 +1,197 @@
+---
+title: 'Multithreading in C++: Atomic Operations'
+date: '2023-09-04'
+tags: ['CPP', 'Multithreading', 'Concurrency']
+draft: false
+summary: Example of a markdown file with code blocks and syntax highlighting
+---
+
+<TOCInline toc={props.toc} />
+
+# Atomic Operations
+
+Atomic operations or instructions, are fundamental operations in concurrent programming that are designed to be executed as a single, indivisble unit of work.
+
+But what does indivisible mean? An indivisible operation is one that any thread or process, will either see the state of the program before the operation started, or after it was fully executed. In other words, no other thread can intercept in between the operation's execution. This property of atomic operations makes them essential in preventing data corruption or undefined behavior in multithreaded programs.
+
+Let's see an example of what can go wrong with a non-atomic operation in a multithreaded program:
+
+```cpp
+#include <thread>
+#include <iostream>
+
+int counter = 0;
+
+void incrementCounter() {
+    for (int i = 0; i < 100000; ++i) {
+        counter++;
+    }
+}
+
+int main() {
+    std::thread t1(incrementCounter);
+    std::thread t2(incrementCounter);
+
+    t1.join();
+    t2.join();
+
+    std::cout << counter << std::endl;
+
+    return 0;
+}
+```
+
+A very simple program; two threads each incrementing a counter 100,000 times. We would expect the program to print 200,000 at the end, rigth? Well here are the results of my first four runs of this program: `113437`, `117676`, `130968`, `116575`. Totally random, undefined behavior.
+
+The reason for this is that `counter++` is a non-atomic operation. Let's say the value of counter is 10 at a point in time. If both threads execute `counter++` at the exact same time, they will both increment it from 10 to 11 and will attempt to write the value 11 in memory. So even though both threads incremented counter by one, counter got incremented only once.
+
+We can fix this with a very small tweak. If we define counter as an atomic integer instead of a regular integer, it is guaranteed that the `++` operation will run atomically every time, therefore the program is going to print `200,000` in every single run.
+
+```cpp
+#include <atomic>
+
+std::atomic<int> counter = 0;
+```
+
+## Atomic Methods Supported by std::atomic\<T\>
+
+### is_lock_free()
+
+Checks if the atomic object is lock free. This will return false for most atomic types since in most cases an internal lock is required to ensure the atomicity of the operations performed on the atomic object. The only atomic object that is always guaranteed to be lock free is `atomic_flag`, which is a very rudimentary atomic boolean. I'll talk more about `atomic_flag` soon. C++20 also introduced two more lock free atomic objects; `atomic_signed_lock_free` and `atomic_unsigned_lock_free`.
+
+I'll discuss locks and mutexes in depth in a future post.
+
+### void store(T desired)
+
+Atomically replaces the value of the atomic object with a non-atomic argument.
+```cpp
+std::atomic<int> num = 0;
+num.store(20); // num now holds 20
+```
+
+### T load()
+
+Atomically returns the value of the atomic object.
+```cpp
+std::atomic<int> num = 20;
+int val = num.load(); // val now holds 20
+```
+
+### T exchange(T desired)
+
+Atomically replaces the value of the atomic object and returns the value held previously.
+```cpp
+std::atomic<int> num = 20;
+int val = num.exchange(30); // val = 20, num = 30
+```
+
+### bool compare_exchange_weak(T& expected, T desired)
+
+This is one of the most interesting and useful atomic operations available. According to Anthony Williams, the author of _C++ Concurrency in Action_, it is the cornerstone of programming with atomic types.
+
+`compare_exchange_weak` compares the value of the atomic type with the value of the `expected` and one of the two cases will happen:
+* They are equal in which case the value of the atomic type is replaced with `desired` and the function returns true.
+* They are not equal in which case the value of the `expected` is replaced with the actual value of the atomic type and the function returns false.
+
+The `incrementCounter` example in the beginning of this article can be written using `compare_exchange_weak` to ensure thread safety as well:
+
+```cpp
+std::atomic<int> counter = 0;
+
+void incrementCounter() {
+    for (int i = 0; i < 100000; ++i) {
+        int expected = counter.load(); // Load the current value
+        int new_value = expected + 1;
+
+        // Attempt to update the counter. If the value of the counter
+        // hasn't changed since we loaded it, then it will succeed in
+        // the first try. if another thread modified counter in the
+        // meantime, the value of expected will be updated with the
+        // new value of counter.
+        while (!counter.compare_exchange_weak(expected, new_value)) {
+            // We will retry the operation with the new expected value
+            new_value = expected + 1;
+        }
+    }
+}
+```
+
+the main difference between `compare_exchange_weak` and `compare_exchange_strong` is that `compare_exchange_weak` can fail spuriosly, even if the value of the atomic type is equal to `expected`. This happens if the processor can't guarantee that the operation has been done atomically. This is why `compare_exchange_weak` is almost always used in while loops, to keep retrying until the operation is carried out successfully.
+
+`compare_exchanges_strong` on the other hand is guaranteed to return `false` only when the value of the atomic type is not equal to `expected`.
+
+## Atomic Arithmetic Operations
+`std::atomic<>` has a pointer specialization that supports the following additional operations which are self explanatory:
+```cpp
+std::atomic<int*> ptr;
+ptr.fetch_add(2); // Adds 2 to the pointer and returns the previous value
+ptr.fetch_sub(2);
+ptr += 2;
+ptr -= 2;
+ptr++;
+ptr--;
+```
+
+`std::atomic<>` also has an arithmetic type specialization that supports the following operations on top of all the ones mentioned above:
+```cpp
+std::atomic<int> num = 10;
+num.fetch_or(4);
+num.fetch_and(4);
+num.fetch_xor(4);
+num |= 4;
+num &= 4;
+num ^= 4;
+```
+
+
+## std::atomic_flag
+
+`std::atomic_flag` is the only atomic type that's always guaranteed to be lock free. It holds a boolean value internally but it has less capabilites than `std::atomic<bool>`. `std::atomic_flag` is the most basic atomic type that prior to `C++20`, only supported two operations:
+
+### bool test_and_set()
+Atomically sets the flag to `true` and returns its previous value.
+```cpp
+std::atomic_flag flag = ATOMIC_FLAG_INIT; // Always initializes to false
+if (!flag.test_and_set()) {
+    std::cout << "The flag has been set"
+}
+```
+
+Note that an `atomic_flag` has to be initiated with `ATOMIC_FLAG_INIT` which is the `false` value.
+
+### void clear()
+Atomically sets the flag to `false`. These are the only two operations supported by `atomic_flag`. With only these two operations, we can implement a spinlock mutex, which is not a useful one in practice, but it demonstrates the concept.
+
+```cpp
+class spinlock {
+    std::atomic_flag flag;
+public:
+    spinlock(): flag(ATOMIC_FLAG_INIT) {}
+
+    void lock() {
+        while (flag.test_and_set());
+    }
+
+    void unlock() {
+        flag.clear();
+    }
+}
+```
+
+In the `spinlock` class above, the value of the flag is initialized to `false`. The first thread that calls the `lock()` function, will atomically set the value of the flag to `true` but won't get stuck in the while loop, because `test_and_set()` returns the previous value held by the flag, which was `false`. When other threads try to call the `lock()` function, they will get stuck in the while loop until the first thread clears the flag by calling `unlock()`.
+
+`C++20` also introduced a new member function to `atomic_flag`, `bool test()` which atomically returns the value held by the flag without setting it.
+
+## Atomic with User Defined Types
+In order to use a User Defined Type (UDT) with `std::atomic` template, the type has to have certain characteristics. The type must have a trivial copy-assignment operator and have no virtual functions or virtual base classes. In other words, they must be copyable with `memcpy()` and they must be comparable with `memcmp()`. An easy way to check this, is that all the following values must be true for the UDT to work with `std::atomic`:
+
+```cpp
+std::is_trivially_copyable<T>::value
+std::is_copy_constructible<T>::value
+std::is_move_constructible<T>::value
+std::is_copy_assignable<T>::value
+std::is_move_assignable<T>::value
+```
+
+## Memory Order
+All of the atomic operations mentioned above take additional arguments of the type `std::memory_order`. These arguments specify how memory accesses are to be ordered around an atomic operation, when multiple threads simultaneously read and write to several variables. This is an advanced topic that warrants its own separate article. Memory order is going to the main topic of discussion in my next article.
