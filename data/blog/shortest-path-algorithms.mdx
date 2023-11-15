@@ -1,0 +1,162 @@
+---
+title: 'Shortest Path Algorithms'
+date: '2023-11-15'
+tags: ['CPP', 'Graph', 'Shortest Path', 'Dijkstra', 'Floyd-Warshall', 'Bellman-Ford']
+draft: false
+summary: A summary and implementation fo the main shortest path algorithms in weighted graphs
+---
+
+<TOCInline toc={props.toc} />
+
+## Dijkstra's Algorithm
+Dijkstra's algorithm is the most famous algorithm to find the shortest path between the source node and all the other nodes in a graph. This algorithm assumes non-negative weights and uses a greedy method to find the shortest path. It's generally pretty efficient and it's usually the go-to method in DSA problems unless negative weights or negative cycles exist in the graph.
+
+Here is a breakdown of the algorithm for a graph with `n` nodes:
+- **Create Distance Array**: Create an array `dist` where `dist[i]` is the tentative shortest path from _source_ to the $i_{th}$ node in the graph
+- **Initialize Distance Array**: Initialize `dist[source]` to zero and `dist[i]` to infinity for all other nodes. Here infinity means that either a path doesn't exist or it hasn't been computed yet.
+- **Maintain a Set of Visited Nodes**: By maintaining a set of visited nodes, we can stop the algorithm once we have visited all the nodes we can access from _source_
+- **Process Each Node**: In each iteration, we choose the node that has the smallest distance in the `dist` array. Then, we consider all the unvisited neighbors of the chosen node and calculate their distance from the current node. If the newly calculated distance is less than `dist[neighbor]`, we update the distance to that node.
+- **Mark Current Node as Visited**: After the current is processed, we mark it as visited.
+- **Termination**: We continue this process until all the nodes have been visited or no other node is accessible from _source_
+It's important to note that since in every iteration we choose the node with the smallest distance, using a `priority_queue` would greatly improve the efficiency of the algorithm.
+
+Here is the implementation of this algorithm in C++ with `priority_queue`:
+```cpp
+/*
+Input: 
+	number of nodes (n)
+	adjacency list of the graph with weights
+	source node
+Output: 
+	Vector where output[i] is the shortest path from source to node i
+*/
+
+vector<int> DijkstraShortestPath(int n, vector<vector<pair<int, int>>> adj, int source)
+{
+	// Initialize dist array with INT_MAX
+	vector<int> dist(n, INT_MAX);
+	// Initialize MinHeap. Pairs are {distance, vertex}
+	priority_queue<pair<int, int>, vector<pair<int, int>>, greater<pair<int, int>>> pq;
+
+	dist[source] = 0; // Distance from source to source is 0 by definition
+	pq.push_make(make_pair(0, source));
+
+	while (!pq.empty()) {
+		int current = pq.top().second;
+		pq.pop();
+
+		for (const auto& [neighbor, weight]: adj(current)) {
+			int newDist = dist[current] + weight;
+			if (newDist < dist[neighbor]) { // If the new distance is shorter
+				dist[neighbor] = newDist;
+				pq.push(make_pair(newDist, neighbor));
+			}
+		}
+	}
+
+	return dist;
+}
+```
+Time Complexity: $O((E+V)log(V))$ where $V$ is the number of vertices and $E$ is the number of edges
+#### Practice Problems
+- [Network Delay Time](https://leetcode.com/problems/network-delay-time/description/)
+- [Path With Minimum Effort](https://leetcode.com/problems/path-with-minimum-effort/description/)
+- [Path With Maximum Probability](https://leetcode.com/problems/path-with-maximum-probability/description/)
+#### Further Reading
+- [Dijkstra's Algorithm (Wikipedia)](https://en.wikipedia.org/wiki/Dijkstra%27s_algorithm)
+- [Dijkstra Algorithm (CP-Algorithm)](https://cp-algorithms.com/graph/dijkstra.html)
+## Floyd-Warshall Algorithm
+Floyd-Warshall is an algorithm to find the shortest path from every node to every other node so it is an all-pairs shortest path algorithm. In this algorithm, we initialize a 2D array `dist` where `dist[i][j]` is the shortest path between the nodes $i$ and $j$ at each phase. 
+
+The algorithm have $k$ phases. After each phase $k$, `dist[i][j]` contains the shortest path between the $i_{th}$ and $j_{th}$ node if we are only allowed to pass through the nodes $1 ...k$. If there is no path between two nodes, the value of `dist` for them is going to be a very large number, indicating that a path doesn't exist. Also, by definition, the distance between each node and itself is 0.
+
+Floyd-Warshall algorithm works on weighted graphs with both positive and negative weights. However, it won't produce the correct output if the graph contains a negative cycle.
+
+Here is the implementation of the Floyd-Warshall algorithm:
+```cpp
+/*
+Input: 
+	number of nodes (n)
+	adjacency list of the graph with weights
+Output: 
+	Vector where output[i][j] is the shortest path from node i to node j
+*/
+
+vector<vector<int, int>> FloydWarshall(int n, vector<vector<pair<int, int>>> adj) {
+	// Initialize dist array with infinity (INT_MAX)
+	vector<vector<int, int>> dist(n, vector<int>(n, INT_MAX));
+
+	for (int i = 0; i < n; ++i) {
+		dist[i][i] = 0; // distance between node to itself
+		for (int j = 0; j < adj[i].size(); ++j) {
+			dist[i][adj[i][j].first] = adj[i][j].second; // the initial weights
+		}
+	}
+
+	for (int k = 0; k < n; ++k) { // the k phases
+		for (int i = 0; i < n; ++i) {
+			for (int j = 0; j < n; ++j) {
+				// This condition is needed to account for negative weights
+				if (dist[i][k] < INT_MAX && dist[k][j] < INT_MAX)
+					dist[i][j] = min(dist[i][j], dist[i][k] + dist[k][j]);
+			}
+		}
+	}
+
+	return dist;
+}
+```
+The time complexity of this algorithm is obviously $O(n^3)$ or $O(V^3)$ since $n$ is the number of vertices in the input graph.
+#### Practice Problems
+- [Design Graph With Shortest Path Calculator](https://leetcode.com/problems/design-graph-with-shortest-path-calculator/description/?envType=daily-question&envId=2023-11-11) (Can also be solved with Dijkstra)
+- [Greg and Graph](https://codeforces.com/problemset/problem/295/B)
+#### Further Reading
+- [Floyd-Warshall Algorithm](https://cp-algorithms.com/graph/all-pair-shortest-path-floyd-warshall.html)
+## Bellman-Ford Algorithm
+Bellman-Ford is another single-source shortest path algorithm, like Dijkstra, but it works on graphs with negative weights and it can be used to detect negative cycles as well.
+
+This algorithm uses the fact that in a graph with $n$ nodes, the shortest path between any two nodes cannot be longer than $n-1$ edges. So the algorithm iterates through the edges $n-1$ times and every time it checks if the previously calculated shortest paths can be improved if the include another edge.
+
+To detect negative cycles, we can do the iteration one last time ($n_{th}$ time) and if any of the shortest paths improve, it means there is a negative cycle in the graph.
+
+Here is a sample implementation of this algorithm in C++. Note that for the Bellman-Ford algorithm, it is much simpler to have a list of edges instead of the adjacency list:
+```cpp
+/*
+Input: 
+	number of nodes (n)
+	a list of all the edges in this format: [from, to, weight]
+	source node
+Output: 
+	Vector where output[i] is the shortest path from the source node to node i
+*/
+
+vector<int> BellmanFord(int n, vector<vector<int>>& edges, int source) {
+	vector<int> dist(n, INT_MAX);
+	dist[source] = 0; // Distance from source to itself
+
+	for (int i = 0; i < n-1; ++i) {
+		for (auto& edge: edges) {
+			if (dist[edge[0]] < INT_MAX) {
+				dist[edge[1]] = min(dist[edge[1]], dist[edge[0]] + dist[edge[2]]);
+			}
+		}
+	}
+
+	// One last iteration to detect negative cycles
+	for (auto& edge: edges) {
+		if (dist[edge[0]] < INT_MAX) {
+			if (dist[edge[0]] + dist[edge[2]] < dist[edge[1]])
+				cout << "Negative Cycle Detected";
+		}
+	}
+
+	// dist contains the shortest path from the source to all the other nodes
+	return dist; 
+}
+```
+The time complexity of this algorithm is $O(V \times E)$  where $V$ is the number of vertices and $E$ is the number of edges in the input graph.
+#### Practice Problems
+- [Ford-Bellman](https://www.eolymp.com/en/problems/1453)
+#### Further Reading
+- [Bellman-Ford Algorithm](https://cp-algorithms.com/graph/bellman_ford.html)
+- [Finding a negative cycle in the graph](https://cp-algorithms.com/graph/finding-negative-cycle-in-graph.html)
