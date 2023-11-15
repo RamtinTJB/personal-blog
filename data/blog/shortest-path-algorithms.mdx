@@ -115,7 +115,7 @@ The time complexity of this algorithm is obviously $O(n^3)$ or $O(V^3)$ since $n
 ## Bellman-Ford Algorithm
 Bellman-Ford is another single-source shortest path algorithm, like Dijkstra, but it works on graphs with negative weights and it can be used to detect negative cycles as well.
 
-This algorithm uses the fact that in a graph with $n$ nodes, the shortest path between any two nodes cannot be longer than $n-1$ edges. So the algorithm iterates through the edges $n-1$ times and every time it checks if the previously calculated shortest paths can be improved if the include another edge.
+This algorithm uses the fact that in a graph with $n$ nodes, the shortest path between any two nodes cannot be longer than $n-1$ edges. So the algorithm iterates through the edges $n-1$ times and every time it checks if the previously calculated shortest paths can be improved if we include another edge.
 
 To detect negative cycles, we can do the iteration one last time ($n_{th}$ time) and if any of the shortest paths improve, it means there is a negative cycle in the graph.
 
