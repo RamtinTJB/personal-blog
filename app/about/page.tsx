@@ -18,8 +18,11 @@ export default function Page() {
         <h1>Experience</h1>
         <div className="flex flex-col gap-y-2">
           {experienceData.map((exp, idx) => (
-            <div className="w-full p-3 border-2 border-teal-500 rounded-md flex gap-5 items-center">
-              <img className="m-0 w-16 rounded-full" src={`/static/images/${exp.logo}`}/>
+            <div
+              key={idx}
+              className="w-full p-3 border-2 border-teal-500 rounded-md flex gap-5 items-center"
+            >
+              <img className="m-0 w-16 rounded-full" src={`/static/images/${exp.logo}`} />
               <div className="flex flex-col w-full">
                 <div className="flex justify-between font-bold">
                   <span>{exp.company}</span>
