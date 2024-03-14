@@ -18,22 +18,26 @@ export default function Page() {
         <h1>Experience</h1>
         <div className="flex flex-col gap-y-2">
           {experienceData.map((exp, idx) => (
-            <div
+            <a
               key={idx}
-              className="w-full p-3 border-2 border-teal-500 rounded-md flex gap-5 items-center"
+              href={`${exp.link}`}
+              target="_blank"
+              style={{ textDecoration: 'inherit', color: 'inherit' }}
             >
-              <img className="m-0 w-16 rounded-full" src={`/static/images/${exp.logo}`} />
-              <div className="flex flex-col w-full">
-                <div className="flex justify-between font-bold">
-                  <span>{exp.company}</span>
-                  <span>{exp.date}</span>
-                </div>
-                <div className="flex justify-between italic">
-                  <span>{exp.jobTitle}</span>
-                  <span>{exp.location}</span>
+              <div className="w-full p-3 border-2 border-cyan-400 dark:border-cyan-700 h-[100px] hover:bg-cyan-400 hover:dark:bg-cyan-700 hover:cursor-pointer hover:h-[120px] rounded-md flex gap-5 items-center transition-all duration-300 ease-in-out">
+                <img className="m-0 w-16 rounded-full" src={`/static/images/${exp.logo}`} />
+                <div className="flex flex-col w-full">
+                  <div className="flex justify-between font-bold">
+                    <span>{exp.company}</span>
+                    <span>{exp.date}</span>
+                  </div>
+                  <div className="flex justify-between italic">
+                    <span>{exp.jobTitle}</span>
+                    <span>{exp.location}</span>
+                  </div>
                 </div>
               </div>
-            </div>
+            </a>
           ))}
         </div>
       </AuthorLayout>
