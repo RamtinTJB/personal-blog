@@ -1,0 +1,144 @@
+---
+title: 'Recursive Lambdas in C++'
+date: '2024-03-25'
+tags: ['CPP', 'Lambda', 'Recursion']
+draft: true
+summary: Different ways of writing recursive lambda function in different C++ versions
+---
+
+## What are Lambda Functions
+
+Lambda functions, introduced in C++11, allow us to define anonymous functions where they are needed. They can come in really handy for short snippets of code that
+are only going to be run once. They are commonly used as arguments to the functions that accept function pointers or `std::function` objects. An example is the
+`std::sort` function which accepts a function object as its third parameter which determines how the values should be sorted.
+
+Suppose we have a vector of people each having _name_ and _age_ as their fields. Here is how we can sort this collection of people by their age using a lambda function:
+
+```cpp:lambda_sort.cpp
+#include <string>
+#include <vector>
+#include <algorithm>
+
+struct Person {
+    std::string name;
+    int age;
+
+    Person(const std::string& name, int age) :
+        name(name),
+        age(age) {}
+};
+
+int main() {
+    std::vector<Person> people = {
+        {"Ramtin", 21},
+        {"Jack", 32},
+        {"Rob", 10}
+    };
+
+    sort(people.begin(), people.end(), 
+        [](const Person& p1, const Person& p2) {
+            return p1.age < p2.age;
+        });
+
+    return 0;
+}
+```
+
+## Recursive Lambda Functions
+
+After learning more about lambda functions in C++, I started to wonder if it's possible for a lambda function to call itself, same way as regular recursive functions.
+Turns out it's possible, and there are multiple ways of doing it! In this short blog post I'll try to go over some of these methods with different examples.
+
+### Using std::function and capturing the function in the lambda
+
+```cpp:function_object_rec_lambda.cpp
+std::function<void(TreeNode*)> inorder;
+
+inorder = [&inorder](TreeNode* node) {
+    if (node == nullptr) return;
+
+    inorder(node->left);
+    std::cout << node->value << '\n';
+    inorder(node->right);
+};
+
+// Let's assume the variable bst is the head of a binary search tree
+// We can call this recursive lambda function using:
+inorder(bst);
+```
+
+The `inorder` function above prints the values of binary tree using in order traversal. Since `std::function` is a fully specified type,
+it can be captured in the lambda expression and the lambda closure is fully informed about its type. Even though this works, it's probably the slowest
+way out of the possible methods. This is mainly because `std::function` allocated dynamic memory internally.
+
+### Function pointer for stateless lambdas
+
+```cpp:stateless_rec_lambda.cpp
+int main() {
+    static int (*fib)(int) = [](int n) {
+        if (n <= 1) return n;
+        return fib(n-1) + fib(n-2);
+    };
+
+    std::cout << fib(10);
+}
+```
+
+The code above works because of the following two reasons:
+1. Lambdas can access static variables
+2. In C++, we can convert a stateless lambda to a function pointer
+
+This is definitely faster than the `std::function` solution but at this point, one can wonder if using lambdas is the best option :)
+
+### Passing Lambda as Argument using nested Lambdas
+Let's write the same `fib` function as above but also keep track of the number of recursive calls for every `n`.
+
+```cpp:nested_rec_lambda.cpp
+int main() {
+    std::unordered_map<int, int> callCount;
+
+    const auto fib = [&callCount](int n) {
+        auto fib_impl = [&callCount](int n, auto& fib_ref) mutable {
+            callCount[n]++;
+            if (n <= 1) return 1;
+
+            return fib_ref(n-1, fib_ref) + fib_ref(n-2, fib_ref);
+        };
+
+        return fib_impl(n, fib_impl);
+    };
+
+    std::cout << fib(10);
+}
+```
+
+In this code we define a lambda inside of another lambda that accepts itself as an argument. This way, we can call the inner lambda from the outer lambda and pass itself
+to it. And anyone who calls the `fib` function won't know of this extra level of abstraction. Prior to C++23, this would have been the best way of writing 
+recursive lambda functions in C++ because it's both faster than the `std::function` way, and we can still capture variables in our lambda closure.
+
+### Using _this_ keyword in C++23
+With the introduction of _Deducing this_ in C++23, there is a very clean an intuitive way of writing recursive lambda functions. Let's rewrite the previous example:
+
+```cpp:deducing_this_rec_lambda.cpp
+int main() {
+    std::unordered_map<int, int> callCount;
+
+    auto fib = [&callCount](this auto const& fib, int n) {
+        callCount[n]++;
+        if (n <= 1) return n;
+
+        return fib(n-1) + fib(n-2);
+    };
+
+    std::cout << fib(10);
+}
+```
+
+Link to the code on Godbolt: [Deducing This in C++23](https://godbolt.org/z/b8qs7nT9d)
+
+Please leave a comment down below to let me know what you think :)
+
+### Further Reading
+
+- [The Proposal for Deducing This in C++23](https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2021/p0847r7.html)
+- [Stack Overflow thread about Recursive Lambdas](https://stackoverflow.com/questions/2067988/how-to-make-a-recursive-lambda)
