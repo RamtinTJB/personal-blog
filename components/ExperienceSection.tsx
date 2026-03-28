@@ -8,10 +8,15 @@ export default function ExperienceSection() {
       </h2>
       <div className="space-y-8">
         {experienceData.map((exp) => (
-          <div key={`${exp.company}-${exp.startDate}`} className="border-l-2 border-primary-500 pl-4">
+          <div
+            key={`${exp.company}-${exp.startDate}`}
+            className="border-l-2 border-primary-500 pl-4"
+          >
             <div className="flex flex-col sm:flex-row sm:items-baseline sm:justify-between">
               <div>
-                <span className="font-semibold text-gray-900 dark:text-gray-100">{exp.company}</span>
+                <span className="font-semibold text-gray-900 dark:text-gray-100">
+                  {exp.company}
+                </span>
                 <span className="mx-2 text-gray-400">·</span>
                 <span className="text-gray-700 dark:text-gray-300">{exp.title}</span>
               </div>
